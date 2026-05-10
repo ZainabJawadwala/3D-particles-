@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 PROFESSIONAL HAND-TRACKING PARTICLE SYSTEM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0e27 0%, #16213e 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #video {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            border: 3px solid #00d4ff;
+            border-radius: 12px;
+            background: #000;
+            object-fit: cover;
+            z-index: 50;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff88;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #00ff88;
+            max-width: 380px;
+            z-index: 100;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+        
+        #info h2 {
+            margin-bottom: 12px;
+            font-size: 18px;
+            text-shadow: 0 0 10px #00ff88;
+            letter-spacing: 1px;
+        }
+        
+        #info p {
+            margin: 6px 0;
+            line-height: 1.7;
+        }
+        
+        #status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #00ff88;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 14px 20px;
+            border-radius: 8px;
+            border: 2px solid #00ff88;
+            font-size: 12px;
+            z-index: 100;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+            letter-spacing: 0.5px;
+        }
+
+        #stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00d4ff;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 2px solid #00d4ff;
+            font-size: 11px;
+            z-index: 100;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <video id="video" playsinline autoplay muted></video>
+    
+    <div id="info">
+        <h2>🎯 PROFESSIONAL HAND TRACKER</h2>
+        <p>━━━━━━━━━━━━━━━━━━━━━</p>
+        <p>✨ Advanced gesture recognition</p>
+        <p>🎨 Real-time particle formation</p>
+        <p>⚡ Ultra-responsive tracking</p>
+        <p>🌈 Dynamic color mapping</p>
+        <p>━━━━━━━━━━━━━━━━━━━━━</p>
+    </div>
+
+    <div id="stats">
+        <p>Particles: <span id="particleCount">45000</span></p>
+        <p>Left Hand: <span id="leftStatus">✗</span></p>
+        <p>Right Hand: <span id="rightStatus">✗</span></p>
+        <p>FPS: <span id="fps">60</span></p>
+    </div>
+    
+    <div id="status">Initializing System...</div>
+
+    <script async src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        // ===== PROFESSIONAL PARTICLE SYSTEM - ADVANCED VERSION =====
+        
+        // --- CONFIG ---
+        const CONFIG = {
+            PARTICLE_COUNT: 45000,
+            ATTRACTION_RADIUS: 14,
+            FOLLOW_SPEED: 0.72,
+            HAND_HISTORY_SIZE: 8,
+            FORCE_MAGNITUDE: 2.2,
+            FALLOFF_POWER: 2.8,
+            DAMPING: 0.80,
+            MAX_VELOCITY: 2.0,
+            BOUNDS: 16,
+            SOFT_ZONE: 14
+        };
+
+        // --- THREE.JS INITIALIZATION ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e27);
+        scene.fog = new THREE.Fog(0x0a0e27, 50, 100);
+
+        // Advanced lighting
+        const light1 = new THREE.PointLight(0x00d4ff, 1.5, 100);
+        light1.position.set(15, 15, 15);
+        scene.add(light1);
+
+        const light2 = new THREE.PointLight(0xff00aa, 1.2, 90);
+        light2.position.set(-15, -10, 10);
+        scene.add(light2);
+
+        const ambientLight = new THREE.AmbientLight(0x404080, 0.6);
+        scene.add(ambientLight);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 10;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // --- PARTICLE SYSTEM ---
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(CONFIG.PARTICLE_COUNT * 3);
+        const particleColors = new Float32Array(CONFIG.PARTICLE_COUNT * 3);
+        const velocities = new Float32Array(CONFIG.PARTICLE_COUNT * 3);
+
+        // Initialize particles
+        for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 30;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 30;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+
+            particleColors[i * 3] = 0.0;      // R
+            particleColors[i * 3 + 1] = 0.6;  // G
+            particleColors[i * 3 + 2] = 0.9;  // B
+
+            velocities[i * 3] = 0;
+            velocities[i * 3 + 1] = 0;
+            velocities[i * 3 + 2] = 0;
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.18,
+            vertexColors: true,
+            sizeAttenuation: true,
+            transparent: true,
+            opacity: 0.85,
+            fog: true
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // --- HAND TRACKING STATE ---
+        let leftHandLandmarks = [];
+        let rightHandLandmarks = [];
+        let leftHandHistory = [];
+        let rightHandHistory = [];
+        let cameraStream = null;
+        let handsInitialized = false;
+        let frameCount = 0;
+        let lastFpsUpdate = Date.now();
+
+        // --- HAND LANDMARK SMOOTHING (PROFESSIONAL GESTURE TRACKING) ---
+        function smoothLandmarks(history) {
+            if (history.length === 0) return [];
+            const latest = history[history.length - 1];
+            if (history.length === 1) return latest;
+
+            const smoothed = [];
+            for (let i = 0; i < latest.length; i++) {
+                let x = 0, y = 0, z = 0, weight = 0;
+                for (let j = 0; j < history.length; j++) {
+                    const w = (j + 1) / history.length;  // Weighted average
+                    x += history[j][i].x * w;
+                    y += history[j][i].y * w;
+                    z += history[j][i].z * w;
+                    weight += w;
+                }
+                smoothed.push({ x: x / weight, y: y / weight, z: z / weight });
+            }
+            return smoothed;
+        }
+
+        // --- ADVANCED PARTICLE PHYSICS ---
+        function updateParticles() {
+            const posAttr = geometry.attributes.position;
+            const colorAttr = geometry.attributes.color;
+
+            for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
+                const px = i * 3;
+                const vx = i * 3;
+
+                let fx = 0, fy = 0, fz = 0;
+                let closestDist = Infinity;
+                let particleAttracted = false;
+                let attractionColor = [0.0, 0.6, 0.9];  // Default idle color
+
+                // ===== LEFT HAND ATTRACTION =====
+                if (leftHandLandmarks.length === 21) {
+                    let minDist = Infinity;
+                    let nearestLm = null;
+
+                    for (let lm of leftHandLandmarks) {
+                        const dx = posAttr.array[px] - lm.x;
+                        const dy = posAttr.array[px + 1] - lm.y;
+                        const dz = posAttr.array[px + 2] - lm.z;
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestLm = { lm, dx, dy, dz, dist };
+                        }
+                    }
+
+                    if (nearestLm && nearestLm.dist < CONFIG.ATTRACTION_RADIUS) {
+                        const falloff = Math.pow(1 - nearestLm.dist / CONFIG.ATTRACTION_RADIUS, CONFIG.FALLOFF_POWER);
+                        const force = falloff * CONFIG.FORCE_MAGNITUDE;
+                        const dist_safe = Math.max(0.2, nearestLm.dist);
+
+                        fx -= (nearestLm.dx / dist_safe) * force;
+                        fy -= (nearestLm.dy / dist_safe) * force;
+                        fz -= (nearestLm.dz / dist_safe) * force;
+
+                        particleAttracted = true;
+                        closestDist = nearestLm.dist;
+                        attractionColor = [0.0, 1.0, 0.5];  // Cyan-green
+                    }
+                }
+
+                // ===== RIGHT HAND ATTRACTION =====
+                if (rightHandLandmarks.length === 21) {
+                    let minDist = Infinity;
+                    let nearestLm = null;
+
+                    for (let lm of rightHandLandmarks) {
+                        const dx = posAttr.array[px] - lm.x;
+                        const dy = posAttr.array[px + 1] - lm.y;
+                        const dz = posAttr.array[px + 2] - lm.z;
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestLm = { lm, dx, dy, dz, dist };
+                        }
+                    }
+
+                    if (nearestLm && nearestLm.dist < CONFIG.ATTRACTION_RADIUS) {
+                        const falloff = Math.pow(1 - nearestLm.dist / CONFIG.ATTRACTION_RADIUS, CONFIG.FALLOFF_POWER);
+                        const force = falloff * CONFIG.FORCE_MAGNITUDE;
+                        const dist_safe = Math.max(0.2, nearestLm.dist);
+
+                        fx -= (nearestLm.dx / dist_safe) * force;
+                        fy -= (nearestLm.dy / dist_safe) * force;
+                        fz -= (nearestLm.dz / dist_safe) * force;
+
+                        particleAttracted = true;
+                        closestDist = Math.min(closestDist, nearestLm.dist);
+                        attractionColor = [1.0, 0.0, 0.7];  // Magenta
+                    }
+                }
+
+                // ===== ULTRA-RESPONSIVE VELOCITY SYSTEM =====
+                velocities[vx] += fx;
+                velocities[vx + 1] += fy;
+                velocities[vx + 2] += fz;
+
+                velocities[vx] *= CONFIG.DAMPING;
+                velocities[vx + 1] *= CONFIG.DAMPING;
+                velocities[vx + 2] *= CONFIG.DAMPING;
+
+                // Velocity cap
+                const vMag = Math.sqrt(velocities[vx] ** 2 + velocities[vx + 1] ** 2 + velocities[vx + 2] ** 2);
+                if (vMag > CONFIG.MAX_VELOCITY) {
+                    const scale = CONFIG.MAX_VELOCITY / vMag;
+                    velocities[vx] *= scale;
+                    velocities[vx + 1] *= scale;
+                    velocities[vx + 2] *= scale;
+                }
+
+                // ===== ULTRA-RESPONSIVE POSITION UPDATE =====
+                posAttr.array[px] += velocities[vx] * CONFIG.FOLLOW_SPEED;
+                posAttr.array[px + 1] += velocities[vx + 1] * CONFIG.FOLLOW_SPEED;
+                posAttr.array[px + 2] += velocities[vx + 2] * CONFIG.FOLLOW_SPEED;
+
+                // ===== DYNAMIC PARTICLE COLORING (PROFESSIONAL GRADIENT) =====
+                if (particleAttracted && closestDist < 3) {
+                    // Core particles - bright and saturated
+                    colorAttr.array[i * 3] = attractionColor[0] * 1.0;
+                    colorAttr.array[i * 3 + 1] = attractionColor[1] * 1.0;
+                    colorAttr.array[i * 3 + 2] = attractionColor[2] * 1.0;
+                } else if (particleAttracted) {
+                    // Transition zone - gradient fade
+                    const fade = Math.pow(1 - (closestDist / CONFIG.ATTRACTION_RADIUS), 1.5);
+                    colorAttr.array[i * 3] = attractionColor[0] * fade;
+                    colorAttr.array[i * 3 + 1] = attractionColor[1] * fade;
+                    colorAttr.array[i * 3 + 2] = attractionColor[2] * fade;
+                } else {
+                    // Idle particles - dim cool blue
+                    colorAttr.array[i * 3] = 0.0;
+                    colorAttr.array[i * 3 + 1] = 0.4;
+                    colorAttr.array[i * 3 + 2] = 0.6;
+                }
+
+                // ===== SOFT BOUNDARY CONTAINMENT (NO HARD BOUNCING) =====
+                for (let offset = 0; offset < 3; offset++) {
+                    const index = px + offset;
+                    const val = posAttr.array[index];
+
+                    if (Math.abs(val) > CONFIG.SOFT_ZONE) {
+                        const pushback = (Math.abs(val) - CONFIG.SOFT_ZONE) * 0.15;
+                        posAttr.array[index] -= Math.sign(val) * pushback;
+                    }
+                }
+            }
+
+            posAttr.needsUpdate = true;
+            colorAttr.needsUpdate = true;
+        }
+
+        // --- MEDIAPIPE HANDS INITIALIZATION ---
+        async function initHandTracking() {
+            try {
+                const video = document.getElementById('video');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                cameraStream = stream;
+                video.srcObject = stream;
+
+                const hands = new Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`
+                });
+
+                hands.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.7,
+                    minTrackingConfidence: 0.5
+                });
+
+                // Hand detection callback
+                hands.onResults((results) => {
+                    if (results.multiHandLandmarks && results.multiHandedness) {
+                        leftHandLandmarks = [];
+                        rightHandLandmarks = [];
+
+                        for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+                            const lms = results.multiHandLandmarks[i].map(lm => ({
+                                x: (lm.x - 0.5) * 12,
+                                y: -(lm.y - 0.5) * 12,
+                                z: lm.z * 6
+                            }));
+
+                            if (results.multiHandedness[i].label === 'Left') {
+                                leftHandHistory.push(lms);
+                                if (leftHandHistory.length > CONFIG.HAND_HISTORY_SIZE) leftHandHistory.shift();
+                                leftHandLandmarks = smoothLandmarks(leftHandHistory);
+                                document.getElementById('leftStatus').textContent = '✓';
+                            } else {
+                                rightHandHistory.push(lms);
+                                if (rightHandHistory.length > CONFIG.HAND_HISTORY_SIZE) rightHandHistory.shift();
+                                rightHandLandmarks = smoothLandmarks(rightHandHistory);
+                                document.getElementById('rightStatus').textContent = '✓';
+                            }
+                        }
+
+                        if (results.multiHandLandmarks.length === 0) {
+                            document.getElementById('leftStatus').textContent = '✗';
+                            document.getElementById('rightStatus').textContent = '✗';
+                        }
+                    }
+                });
+
+                // Frame detection loop
+                const detectFrame = async () => {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        await hands.send({ image: video });
+                    }
+                    requestAnimationFrame(detectFrame);
+                };
+                detectFrame();
+
+                document.getElementById('status').textContent = '✓ SYSTEM ACTIVE - SHOW YOUR HANDS!';
+                document.getElementById('status').style.color = '#00ff88';
+                handsInitialized = true;
+            } catch (err) {
+                document.getElementById('status').textContent = '✗ Error: ' + err.message;
+                console.error(err);
+            }
+        }
+
+        // --- RENDER LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (handsInitialized) {
+                updateParticles();
+            }
+
+            // Subtle rotation for visual interest
+            particles.rotation.x += 0.0001;
+            particles.rotation.y += 0.0002;
+
+            // FPS counter
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFpsUpdate > 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFpsUpdate = now;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- EVENT LISTENERS ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+        });
+
+        // --- STARTUP ---
+        initHandTracking();
+        animate();
+    </script>
+</body>
+</html>
